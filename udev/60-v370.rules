@@ -1,0 +1,8 @@
+# Perfection V37/V370 — USB access for users in group "scanner" and for
+# the active desktop session (uaccess). Also matches the simulated scanner
+# attached through vhci-hcd by v370-usbsim.
+#
+# Install:
+#   sudo cp udev/60-v370.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04b8", ATTRS{idProduct}=="014a", MODE="0660", GROUP="scanner", TAG+="uaccess"

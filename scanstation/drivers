@@ -1,0 +1,6 @@
+# scanSTATION driver manifest of lib-v370.
+# One line per driver: <driver name = Go build tag> <firmware script or ->
+# The firmware script is run as: <script> DEST [and must leave the verified
+# firmware below DEST/firmware/]. See README.md in this folder.
+v370        scanstation/firmware.sh
+epsonscan2  -

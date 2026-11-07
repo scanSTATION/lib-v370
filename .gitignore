@@ -1,0 +1,14 @@
+# build output
+/bin/
+
+# The vendor's proprietary firmware must never be committed to this repository
+esfwdd.bin
+/firmware/esfwdd.bin
+
+# raw usbmon captures (keep them outside this repository)
+/testdata/captures/
+/docs/research/tools/firmware/out/
+__pycache__/
+
+# private recordings and raw captures are never committed
+/testdata/
