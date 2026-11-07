@@ -2,8 +2,11 @@
 // (PNG, JPEG or PDF), optionally the raw stream, and a JSON sidecar that
 // documents exactly how the file was produced.
 //
-// Pixel values are never altered (no tone curve, resampling, deskew or
-// flattening) and the image is not cropped; see docs/protocol.md §8.
+// By default the image is stored as scanned: full scanned width, pixel
+// values unaltered (no tone curve, resampling, deskew or flattening); see
+// docs/protocol.md §8. A caller may postprocess the decoded image
+// (Options.Transform, e.g. cropping to the requested size); the sidecar
+// records what was done, and Options.KeepOriginal keeps the scan as well.
 package output
 
 import (
@@ -54,35 +57,44 @@ type Options struct {
 	// PDFLossless stores the PDF page image losslessly (/FlateDecode, PNG
 	// quality) instead of as JPEG.
 	PDFLossless bool
+	// Transform, if set, processes the decoded image (at its dpi) before it
+	// is encoded; record describes what was done and goes into the
+	// sidecar's processing.steps. Not applied to the Raw format.
+	Transform func(img *image.RGBA, dpi int) (out *image.RGBA, record any, err error)
+	// KeepOriginal additionally stores the untransformed image as
+	// BASE-original.<ext> (only when Transform is applied).
+	KeepOriginal bool
 }
 
 // Meta is the JSON sidecar (BASE.json).
 type Meta struct {
-	Version    string    `json:"format_version"`
-	File       string    `json:"file"`
-	FileFormat Format    `json:"file_format"`
-	FileSHA256 string    `json:"file_sha256"`
-	Quality    int       `json:"jpeg_quality,omitempty"`
-	PDFImage   string    `json:"pdf_image,omitempty"` // "flate (lossless)" or "jpeg"
-	Profile    string    `json:"profile"`
-	Identity   string    `json:"identity,omitempty"`
-	Time       time.Time `json:"time"`
-	Seconds    float64   `json:"scan_seconds,omitempty"`
-	DPI        int       `json:"dpi"`
-	WidthPx    int       `json:"width_px"`
-	HeightPx   int       `json:"height_px"`
-	ReqWidth   int       `json:"requested_width_px"`
-	ReqHeight  int       `json:"requested_height_px"`
-	Crop       Crop      `json:"crop"`
-	Raw        RawInfo   `json:"raw"`
-	Values     string    `json:"values"`
-	Calibrated string    `json:"calibration"`
+	Version    string     `json:"format_version"`
+	File       string     `json:"file"`
+	FileFormat Format     `json:"file_format"`
+	FileSHA256 string     `json:"file_sha256"`
+	Quality    int        `json:"jpeg_quality,omitempty"`
+	PDFImage   string     `json:"pdf_image,omitempty"` // "flate (lossless)" or "jpeg"
+	Profile    string     `json:"profile"`
+	Identity   string     `json:"identity,omitempty"`
+	Time       time.Time  `json:"time"`
+	Seconds    float64    `json:"scan_seconds,omitempty"`
+	DPI        int        `json:"dpi"`
+	WidthPx    int        `json:"width_px"`
+	HeightPx   int        `json:"height_px"`
+	ReqWidth   int        `json:"requested_width_px"`
+	ReqHeight  int        `json:"requested_height_px"`
+	Processing Processing `json:"processing"`
+	Raw        RawInfo    `json:"raw"`
+	Values     string     `json:"values"`
+	Calibrated string     `json:"calibration"`
 }
 
-// Crop documents that (and why) the image is not cropped.
-type Crop struct {
-	Applied bool   `json:"applied"`
-	Note    string `json:"note"`
+// Processing documents what happened to the decoded image.
+type Processing struct {
+	Steps          any    `json:"steps,omitempty"` // Options.Transform's record
+	Note           string `json:"note"`
+	OriginalFile   string `json:"original_file,omitempty"`
+	OriginalSHA256 string `json:"original_sha256,omitempty"`
 }
 
 // RawInfo describes the decoded stream.
@@ -97,12 +109,12 @@ type RawInfo struct {
 }
 
 // MetaVersion identifies the sidecar layout.
-const MetaVersion = "v370-scan/2"
+const MetaVersion = "v370-scan/3"
 
 const (
 	valuesNote = "8-bit RGB exactly as delivered by the scanner (scanner-side calibration), " +
 		"colour channels line-aligned; no host tone curve, no resampling, no deskew, no flattening"
-	calibNote = "calibration tables replayed from the vendor-app recording the profile was extracted from"
+	calibNote = "offsets and shading computed from this scan's own calibration reads"
 )
 
 // Write decodes stream with the profile's geometry and writes BASE.<ext>
@@ -132,38 +144,46 @@ func Write(base string, p *v370.Profile, stream []byte, opt Options, meta Meta) 
 		}
 	}
 
-	var file bytes.Buffer
-	switch opt.Format {
-	case PNG:
-		err = rawimg.WritePNG(&file, img, g.DPI)
-	case JPEG:
-		err = jpeg.Encode(&file, img, &jpeg.Options{Quality: opt.Quality})
-	case PDF:
-		b := img.Bounds()
-		if opt.PDFLossless {
-			err = WriteFlatePage(&file, rgbSamples(img), b.Dx(), b.Dy(), g.DPI, false)
-		} else {
-			var jb bytes.Buffer
-			if err = jpeg.Encode(&jb, img, &jpeg.Options{Quality: opt.Quality}); err == nil {
-				err = WriteJPEGPage(&file, jb.Bytes(), b.Dx(), b.Dy(), g.DPI, false)
-			}
+	original := img
+	var record any
+	if opt.Transform != nil && opt.Format != Raw {
+		if img, record, err = opt.Transform(img, g.DPI); err != nil {
+			return nil, fmt.Errorf("output: postprocessing: %w", err)
 		}
-	case Raw:
-		file.Write(stream)
-	default:
-		return nil, fmt.Errorf("output: unknown format %q", opt.Format)
 	}
+	file, err := encode(img, opt, g.DPI, stream)
 	if err != nil {
 		return nil, err
 	}
 
 	imgPath := base + opt.Format.Ext()
-	if err := os.WriteFile(imgPath, file.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(imgPath, file, 0o644); err != nil {
 		return nil, err
 	}
 	paths := []string{imgPath}
+	if img != original {
+		meta.Processing = Processing{Steps: record, Note: "postprocessed (steps); pixel values inside the result are the scanner's"}
+		if opt.KeepOriginal {
+			ob, err := encode(original, opt, g.DPI, stream)
+			if err != nil {
+				return nil, err
+			}
+			op := base + "-original" + opt.Format.Ext()
+			if err := os.WriteFile(op, ob, 0o644); err != nil {
+				return nil, err
+			}
+			osum := sha256.Sum256(ob)
+			meta.Processing.OriginalFile = filepath.Base(op)
+			meta.Processing.OriginalSHA256 = hex.EncodeToString(osum[:])
+			paths = append(paths, op)
+		}
+	} else {
+		meta.Processing = Processing{Steps: record, Note: fmt.Sprintf(
+			"as scanned: full scanned width (%d px); the requested area is %d px wide from x=0, y=0",
+			g.Width, p.WidthPx)}
+	}
 
-	fs := sha256.Sum256(file.Bytes())
+	fs := sha256.Sum256(file)
 	ss := sha256.Sum256(stream)
 	meta.Version = MetaVersion
 	meta.File = filepath.Base(imgPath)
@@ -181,9 +201,6 @@ func Write(base string, p *v370.Profile, stream []byte, opt Options, meta Meta) 
 	meta.DPI = g.DPI
 	meta.WidthPx, meta.HeightPx = img.Bounds().Dx(), img.Bounds().Dy()
 	meta.ReqWidth, meta.ReqHeight = p.WidthPx, p.HeightPx
-	meta.Crop = Crop{Applied: false, Note: fmt.Sprintf(
-		"not cropped: full scanned width (%d px); the requested area is %d px wide, starts at y=0 "+
-			"and at an x offset not yet determined (docs/protocol.md §8)", g.Width, p.WidthPx)}
 	meta.Raw = RawInfo{
 		Width: g.Width, Lines: g.Lines, LinesPerBlock: g.LinesPerBlock,
 		ChannelOffsets: g.ChannelOffsets(), StreamBytes: len(stream),
@@ -202,6 +219,33 @@ func Write(base string, p *v370.Profile, stream []byte, opt Options, meta Meta) 
 		return nil, err
 	}
 	return append(paths, base+".json"), nil
+}
+
+// encode stores img in opt.Format (Raw: the stream itself).
+func encode(img *image.RGBA, opt Options, dpi int, stream []byte) ([]byte, error) {
+	var file bytes.Buffer
+	var err error
+	switch opt.Format {
+	case PNG:
+		err = rawimg.WritePNG(&file, img, dpi)
+	case JPEG:
+		err = jpeg.Encode(&file, img, &jpeg.Options{Quality: opt.Quality})
+	case PDF:
+		b := img.Bounds()
+		if opt.PDFLossless {
+			err = WriteFlatePage(&file, rgbSamples(img), b.Dx(), b.Dy(), dpi, false)
+		} else {
+			var jb bytes.Buffer
+			if err = jpeg.Encode(&jb, img, &jpeg.Options{Quality: opt.Quality}); err == nil {
+				err = WriteJPEGPage(&file, jb.Bytes(), b.Dx(), b.Dy(), dpi, false)
+			}
+		}
+	case Raw:
+		file.Write(stream)
+	default:
+		return nil, fmt.Errorf("output: unknown format %q", opt.Format)
+	}
+	return file.Bytes(), err
 }
 
 // rgbSamples returns the image as packed 8-bit RGB rows.

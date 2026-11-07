@@ -281,7 +281,10 @@ in 24.8 s; register `0x0005` counted both scans.
 | Values | scanner-calibrated, **before** the vendor's host tone curve (the vendor: raw 192→220, 224→233, 240→240) |
 | Gray / line-art | the scanner still sends RGB (mode 0x0800 changes nothing visible in the data size); conversion on the host |
 | 75 / 150 dpi | scanned at 100 / 200 dpi, downscaled on the host |
-| Horizontal crop | unknown: where the vendor's requested area starts inside the wider line could not be determined with the grid test page (estimates 4–20 px) |
+| Horizontal crop | the vendor keeps the requested width a few pixels after the line start (5–10 px at 300–1200 dpi, matched against its output) and all scanned lines; it does not rescale |
+| Scan origin | image (0, 0) is about 1.7 mm (across) / 0.9 mm (along) inside the glass corner (ID-1 card pushed into the corner) |
+| Real resolution | at nominal 300 dpi: 304.4 dpi across (+1.5 %), 306.0 dpi along the glass (+2.0 %) (ID-1 card, 85.60 × 53.98 mm); other resolutions not measured yet |
+| Not the sheet | a bright strip at x ≈ 2505–2630 and a dark line at y ≈ 3482 (300 dpi A4) are scanner features, visible without paper |
 
 The shear and colour fringes in `docs/first-direct-scan-raw-100dpi.png` are
 exactly the trailers (rendered as pixels) and the missing channel alignment.

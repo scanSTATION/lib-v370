@@ -12,9 +12,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fmt"
 	"github.com/scanSTATION/lib-v370/output"
+	"github.com/scanSTATION/lib-v370/sim/synth"
 	"github.com/scanSTATION/lib-v370/sim/trace"
 	"github.com/scanSTATION/lib-v370/v370"
+	"image"
 )
 
 // recordedImage returns the largest 1e 47 data read of a trace.
@@ -82,7 +85,7 @@ func TestWriteFormats(t *testing.T) {
 		}
 		var m output.Meta
 		mb, _ := os.ReadFile(base + ".json")
-		if err := json.Unmarshal(mb, &m); err != nil || m.Profile != "a4-100dpi-color" || m.FileFormat != f || m.Crop.Applied {
+		if err := json.Unmarshal(mb, &m); err != nil || m.Profile != "a4-100dpi-color" || m.FileFormat != f || m.Processing.Steps != nil {
 			t.Fatalf("%s meta %s %v", f, mb, err)
 		}
 	}
@@ -141,5 +144,67 @@ func TestLosslessPDF(t *testing.T) {
 	json.Unmarshal(mb, &m)
 	if m.PDFImage != "flate (lossless)" {
 		t.Fatalf("meta pdf_image %q", m.PDFImage)
+	}
+}
+
+// Transform runs before encoding; its record lands in the sidecar, and
+// KeepOriginal stores the scan as well (synthetic stream, no recordings).
+func TestTransformAndOriginal(t *testing.T) {
+	p, err := v370.LoadProfile("user-100x50mm-300dpi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := synth.Stream(p)
+	dir := t.TempDir()
+	crop := func(img *image.RGBA, dpi int) (*image.RGBA, any, error) {
+		if dpi != 300 {
+			return nil, nil, fmt.Errorf("dpi %d", dpi)
+		}
+		return img.SubImage(image.Rect(0, 0, 100, 50)).(*image.RGBA), map[string]any{"step": "crop"}, nil
+	}
+	files, err := output.Write(filepath.Join(dir, "t"), p, stream,
+		output.Options{Format: output.PNG, Transform: crop, KeepOriginal: true}, output.Meta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 || filepath.Base(files[1]) != "t-original.png" {
+		t.Fatalf("files %v", files)
+	}
+	dims := func(path string) (int, int) {
+		f, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		c, err := png.DecodeConfig(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c.Width, c.Height
+	}
+	if w, h := dims(files[0]); w != 100 || h != 50 {
+		t.Fatalf("result %dx%d", w, h)
+	}
+	g, _ := p.Geometry()
+	if w, h := dims(files[1]); w != g.Width || h != g.OutputHeight() {
+		t.Fatalf("original %dx%d, want %dx%d", w, h, g.Width, g.OutputHeight())
+	}
+	var m output.Meta
+	mb, _ := os.ReadFile(filepath.Join(dir, "t.json"))
+	if err := json.Unmarshal(mb, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.WidthPx != 100 || m.HeightPx != 50 || m.Processing.OriginalFile != "t-original.png" || m.Processing.Steps == nil {
+		t.Fatalf("meta %s", mb)
+	}
+	// Raw output is never transformed.
+	files, err = output.Write(filepath.Join(dir, "r"), p, stream, output.Options{Format: output.Raw, Transform: crop}, output.Meta{})
+	if err != nil || len(files) != 2 {
+		t.Fatalf("raw: %v %v", files, err)
+	}
+	// A failing transform fails the write.
+	bad := func(*image.RGBA, int) (*image.RGBA, any, error) { return nil, nil, fmt.Errorf("boom") }
+	if _, err := output.Write(filepath.Join(dir, "b"), p, stream, output.Options{Transform: bad}, output.Meta{}); err == nil {
+		t.Fatal("transform error ignored")
 	}
 }
