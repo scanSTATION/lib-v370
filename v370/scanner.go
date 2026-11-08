@@ -42,7 +42,11 @@ type Options struct {
 	// FirmwareSettle is the pause after a firmware upload before the next
 	// command (the vendor app waits ~2.7 s; default 2.5 s).
 	FirmwareSettle time.Duration
-	Log            *slog.Logger
+	// VendorStart keeps the vendor app's carriage start position: scans
+	// begin ≈ 1.2 mm after the glass corner. Default: start at the corner
+	// (start.go).
+	VendorStart bool
+	Log         *slog.Logger
 }
 
 func (o *Options) defaults() error {

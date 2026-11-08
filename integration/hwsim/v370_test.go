@@ -50,6 +50,8 @@ func TestDirectOpen(t *testing.T) {
 		Firmware: fw,
 		Now:      func() time.Time { return recorded },
 		Sleep:    func(context.Context, time.Duration) error { return nil },
+		// replaying a recording: keep the recorded (vendor) carriage start
+		VendorStart: true,
 	})
 	if err != nil {
 		t.Fatal(err)

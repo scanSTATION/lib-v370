@@ -52,7 +52,7 @@ func TestOpenDeviceScan(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	dev, err := libv370.OpenDevice(ctx, libv370.Options{Open: opener, Firmware: fw, Now: func() time.Time { return clock }})
+	dev, err := libv370.OpenDevice(ctx, libv370.Options{Open: opener, Firmware: fw, Now: func() time.Time { return clock }, VendorStart: true})
 	if err != nil {
 		t.Fatal(err)
 	}

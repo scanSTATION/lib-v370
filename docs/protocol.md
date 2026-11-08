@@ -282,9 +282,9 @@ in 24.8 s; register `0x0005` counted both scans.
 | Gray / line-art | the scanner still sends RGB (mode 0x0800 changes nothing visible in the data size); conversion on the host |
 | 75 / 150 dpi | scanned at 100 / 200 dpi, downscaled on the host |
 | Horizontal crop | the vendor keeps the requested width a few pixels after the line start (5–10 px at 300–1200 dpi, matched against its output) and all scanned lines; it does not rescale |
-| Scan origin | image (0, 0) is about 1.7 mm (across) / 0.9 mm (along) inside the glass corner (ID-1 card pushed into the corner) |
-| Real resolution | at nominal 300 dpi: 304.4 dpi across (+1.5 %), 306.0 dpi along the glass (+2.0 %) (ID-1 card, 85.60 × 53.98 mm); other resolutions not measured yet |
-| Not the sheet | a bright strip at x ≈ 2505–2630 and a dark line at y ≈ 3482 (300 dpi A4) are scanner features, visible without paper |
+| Scan origin | across: the first column is at the frame edge (a sheet in the corner starts ≈ 0.4–1.5 mm under the frame; moving the sensor window left only shows the frame edge and unlit pixels). Along: with the vendor's pre-move (`1e 01` before the image pass: 568/556/752/748/812 steps at 100/200/300/600/1200 dpi) the first line is ≈ 1.2 mm after the corner; the driver omits 100/110/113/116/117 steps so the first line is the corner ±0.1 mm (sheet of known length, lid open; ≈ 93.4 steps/mm). `Options.VendorStart` keeps the vendor values |
+| Real resolution | along the glass **300.2 dpi** at nominal 300 (ruler, mm and 1/16-inch scales over 25 cm, ±0.01 %). Across about +1.0–1.5 % (card 304.4 dpi; ruler face 606 at 600 dpi), depending on the object's height above the glass (lens magnification); a raised ruler scale gave +0.2 % |
+| Sheet edges | with the lid closed a sheet's edges show as a shadow line (bottom) or a brighter lid strip (right); with the lid open as a sharp paper/black edge (best for measuring) |
 
 The shear and colour fringes in `docs/first-direct-scan-raw-100dpi.png` are
 exactly the trailers (rendered as pixels) and the missing channel alignment.

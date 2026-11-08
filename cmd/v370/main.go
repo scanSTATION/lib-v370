@@ -84,6 +84,7 @@ type common struct {
 	allowUnknown bool
 	verbose      bool
 	noSession    bool
+	vendorStart  bool
 }
 
 func (c *common) register(fs *flag.FlagSet) {
@@ -91,6 +92,7 @@ func (c *common) register(fs *flag.FlagSet) {
 	fs.StringVar(&c.fwPath, "firmware", "", "firmware file (default: embedded esfwdd.bin)")
 	fs.BoolVar(&c.allowUnknown, "allow-unknown-firmware", false, "accept a firmware file with an unknown SHA-256")
 	fs.BoolVar(&c.verbose, "v", false, "verbose logging")
+	fs.BoolVar(&c.vendorStart, "vendor-start", false, "start scans where the vendor app does (≈ 1.2 mm after the glass corner)")
 }
 
 // open finds, claims and initialises the scanner.
@@ -101,7 +103,7 @@ func (c *common) open(ctx context.Context) (*usbfs.Device, *v370.Scanner, error)
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 
-	opt := v370.Options{Log: log, NoSession: c.noSession}
+	opt := v370.Options{Log: log, NoSession: c.noSession, VendorStart: c.vendorStart}
 	if c.fwPath != "" {
 		fw, err := firmware.Load(c.fwPath, c.allowUnknown)
 		if err != nil {

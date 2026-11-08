@@ -405,7 +405,11 @@ func (s *Scanner) RunProfile(ctx context.Context, p *Profile, sink DataSink) err
 				cmd = ""
 				continue
 			}
-			if err := s.c.write(ctx, st.Data); err != nil {
+			data := st.Data
+			if cmd == "1e01" && !s.opt.VendorStart {
+				data = cornerStart(data, p.ScanDPI)
+			}
+			if err := s.c.write(ctx, data); err != nil {
 				return fail(err)
 			}
 			switch {

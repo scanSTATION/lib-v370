@@ -55,6 +55,9 @@ type Options struct {
 	// Power button keeps working (long press); Scan opens a session only for
 	// the duration of the scan.
 	NoSession bool
+	// VendorStart keeps the vendor app's carriage start position (scans
+	// begin ≈ 1.2 mm after the glass corner); default: at the corner.
+	VendorStart bool
 }
 
 // RealScanner opens the real V370 via usbfs (simulated devices attached via
@@ -117,7 +120,7 @@ func OpenDevice(ctx context.Context, opt Options) (*Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := v370.Open(ctx, tp, v370.Options{Firmware: opt.Firmware, Log: opt.Log, Now: opt.Now, NoSession: opt.NoSession})
+	s, err := v370.Open(ctx, tp, v370.Options{Firmware: opt.Firmware, Log: opt.Log, Now: opt.Now, NoSession: opt.NoSession, VendorStart: opt.VendorStart})
 	if err != nil {
 		tp.Close()
 		return nil, fmt.Errorf("%s: %w", desc, err)

@@ -295,6 +295,8 @@ func (c *cand) accepts(data []byte) bool {
 	}
 	s := c.p.Steps[c.cur]
 	return (s.Kind == v370.StepWrite && bytes.Equal(s.Data, data)) || s.Kind == v370.StepEcho ||
+		// the driver shortens the move to the scan start (v370 start.go)
+		(s.Kind == v370.StepWrite && v370.IsPreMove(s.Data) && v370.IsPreMove(data)) ||
 		(s.Kind == v370.StepCalc && len(data) == s.Len)
 }
 

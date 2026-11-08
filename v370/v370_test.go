@@ -53,7 +53,8 @@ func openAt(t *testing.T, tp usb.Transport, at time.Time) *v370.Scanner {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	s, err := v370.Open(ctx, tp, v370.Options{Now: func() time.Time { return at }, Sleep: noSleep, Firmware: testFirmware(t)})
+	// Replays of recordings: keep the recorded (vendor) carriage start.
+	s, err := v370.Open(ctx, tp, v370.Options{Now: func() time.Time { return at }, Sleep: noSleep, Firmware: testFirmware(t), VendorStart: true})
 	if err != nil {
 		t.Fatal(err)
 	}
