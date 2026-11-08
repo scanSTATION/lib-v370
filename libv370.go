@@ -144,6 +144,12 @@ func (d *Device) Status(ctx context.Context) (v370.Status, error) { return d.s.S
 // (v370.ButtonNone if none). Poll it while idle, never during Scan.
 func (d *Device) ReadButton(ctx context.Context) (v370.Button, error) { return d.s.ReadButton(ctx) }
 
+// PressDuration measures how long the button b just reported by ReadButton
+// is held (see v370.Scanner.PressDuration). Only while idle.
+func (d *Device) PressDuration(ctx context.Context, b v370.Button, poll, limit time.Duration) (time.Duration, error) {
+	return d.s.PressDuration(ctx, b, poll, limit)
+}
+
 // Protocol gives access to the low-level session (registers, raw queries).
 func (d *Device) Protocol() *v370.Scanner { return d.s }
 

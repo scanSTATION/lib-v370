@@ -78,7 +78,7 @@ area.
     the uploaded image with the file, or read status variables from firmware-map.md §3).
   - Do not read register areas: reads may have side effects.
   - Start with len ≤ 512.
-  - [V code, untested]
+  - [V code; verified on the device 2026-11-08]
 - `1e 90` → 256 bytes of front-end registers [I].
 
 ### 7. Auto power-off

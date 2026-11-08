@@ -40,6 +40,7 @@ Commands:
   decode  convert a raw stream (scan -keep-raw) into PNG + JSON
   buttons watch the panel buttons (Printer, Email, PDF) and print presses
   poll    open a session and poll read-only queries, logging every change
+  mem     read scanner RAM (read-only 1e 83 type 8), e.g. button state
   raw     send 2-byte commands (1b xx / 1e xx) and print the replies (exploration)
   reset   USB port reset (WARNING: a hung V370 drops off the bus instead of
           recovering; only a power cycle helps — see docs/protocol.md §2)
@@ -64,6 +65,8 @@ func main() {
 		err = cmdPoll(os.Args[2:])
 	case "buttons":
 		err = cmdButtons(os.Args[2:])
+	case "mem":
+		err = cmdMem(os.Args[2:])
 	case "raw":
 		err = cmdRaw(os.Args[2:])
 	case "reset":

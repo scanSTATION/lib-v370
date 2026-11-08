@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/scanSTATION/lib-v370/firmware"
 	"github.com/scanSTATION/lib-v370/rawimg"
@@ -56,7 +57,9 @@ type Device struct {
 	param     []byte // command waiting for its parameter (after ACK)
 	in        [][]byte
 	cands     []cand // profiles matching the current scan so far
-	buttons   []byte
+	buttons   []press
+	held      v370.Button // button still held after its press was reported
+	releaseAt time.Time
 	scans     int
 	lastImage []byte
 }
@@ -92,12 +95,23 @@ func New(opt Options) (*Device, error) {
 	return &Device{opt: opt, fwLoaded: opt.FirmwareLoaded}, nil
 }
 
-// PressButton queues a panel button press (reported by the next `1e 85`).
-func (d *Device) PressButton(b v370.Button) {
+// press is a queued panel button press and how long it is held.
+type press struct {
+	b    v370.Button
+	hold time.Duration
+}
+
+// HoldButton queues a press held for hold: the next `1e 85` reports it, and
+// the button input in RAM (read with `1e 83`) shows it held until
+// hold − v370.PressDebounce after that report.
+func (d *Device) HoldButton(b v370.Button, hold time.Duration) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.buttons = append(d.buttons, byte(b))
+	d.buttons = append(d.buttons, press{b, hold})
 }
+
+// PressButton queues a short panel button press (reported by the next `1e 85`).
+func (d *Device) PressButton(b v370.Button) { d.HoldButton(b, v370.PressDebounce) }
 
 // Scans returns the number of completed profile runs.
 func (d *Device) Scans() int {
@@ -152,6 +166,7 @@ var (
 	cmdButton    = []byte{0x1e, 0x85}
 	cmdClock     = []byte{0x1e, 0x8e}
 	cmdRegister  = []byte{0x1e, 0x8f}
+	cmdMemory    = []byte{0x1e, 0x83}
 	cmdSession   = []byte{0x1e, 0x93}
 )
 
@@ -202,13 +217,16 @@ func (d *Device) genericLocked(data []byte) error {
 	case bytes.Equal(data, cmdButton):
 		b := byte(0)
 		if len(d.buttons) > 0 {
-			b, d.buttons = d.buttons[0], d.buttons[1:]
+			p := d.buttons[0]
+			d.buttons = d.buttons[1:]
+			b = byte(p.b)
+			d.held, d.releaseAt = p.b, time.Now().Add(p.hold-v370.PressDebounce)
 		}
 		d.send([]byte{b})
 	case bytes.Equal(data, cmdLamp):
 		d.send([]byte{0x01}) // measurement done, levels OK
 	case bytes.Equal(data, cmdSession), bytes.Equal(data, cmdClock),
-		bytes.Equal(data, cmdRegister), bytes.Equal(data, cmdFwRestart):
+		bytes.Equal(data, cmdRegister), bytes.Equal(data, cmdFwRestart), bytes.Equal(data, cmdMemory):
 		d.param = append([]byte(nil), data...)
 		d.send(ack)
 	default:
@@ -228,6 +246,21 @@ func (d *Device) paramLocked(p []byte) error {
 		v := make([]byte, 4)
 		binary.LittleEndian.PutUint32(v, d.opt.Registers[binary.LittleEndian.Uint16(p)])
 		d.send(v)
+	case bytes.Equal(cmd, cmdMemory):
+		// Only the read-only type 8 is modelled; memory reads 0 except the
+		// button input byte 0x452.
+		if len(p) != 8 || p[0] != 0x08 {
+			return fmt.Errorf("synth: 1e 83 with parameter %x (only type 8 reads are allowed)", p)
+		}
+		addr := binary.LittleEndian.Uint32(p[1:])
+		n := int(p[5]) | int(p[6])<<8 | int(p[7])<<16
+		out := make([]byte, n)
+		for i := range out {
+			if addr+uint32(i) == 0x452 {
+				out[i] = d.buttonInputLocked()
+			}
+		}
+		d.send(out)
 	case bytes.Equal(cmd, cmdClock):
 		if len(p) != 6 || p[0] != 0x0b || p[1] != 0x00 {
 			// Only the clock function is modelled; anything else would write
@@ -239,6 +272,15 @@ func (d *Device) paramLocked(p []byte) error {
 		d.send(ack)
 	}
 	return nil
+}
+
+// buttonInputLocked is the firmware's current button input byte (active
+// low; 0xF0 = nothing held).
+func (d *Device) buttonInputLocked() byte {
+	if d.held == v370.ButtonNone || !time.Now().Before(d.releaseAt) {
+		return 0xF0
+	}
+	return 0xF0 &^ (0x08 << byte(d.held))
 }
 
 func (d *Device) uploadLocked(data []byte) error {

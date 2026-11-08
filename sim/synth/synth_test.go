@@ -150,3 +150,36 @@ func TestButtons(t *testing.T) {
 		}
 	}
 }
+
+// A held press: reported once by 1e 85; the input byte (1e 83) shows it
+// held until released, which gives the press duration.
+func TestPressDuration(t *testing.T) {
+	ctx := context.Background()
+	dev, s := open(t, synth.Options{FirmwareLoaded: true})
+	dev.HoldButton(v370.ButtonPDF, 700*time.Millisecond)
+	if b, err := s.ReadButton(ctx); err != nil || b != v370.ButtonPDF {
+		t.Fatalf("press %v %v", b, err)
+	}
+	if b, err := s.HeldButton(ctx); err != nil || b != v370.ButtonPDF {
+		t.Fatalf("held %v %v", b, err)
+	}
+	d, err := s.PressDuration(ctx, v370.ButtonPDF, 20*time.Millisecond, 5*time.Second)
+	if err != nil || d < 650*time.Millisecond || d > 900*time.Millisecond {
+		t.Fatalf("duration %v %v, want ≈ 700ms", d, err)
+	}
+	if b, _ := s.HeldButton(ctx); b != v370.ButtonNone {
+		t.Fatalf("still held: %v", b)
+	}
+	// A short press is released by the time it is reported.
+	dev.PressButton(v370.ButtonEmail)
+	s.ReadButton(ctx)
+	if d, err := s.PressDuration(ctx, v370.ButtonEmail, 20*time.Millisecond, time.Second); err != nil || d > 350*time.Millisecond {
+		t.Fatalf("short press %v %v", d, err)
+	}
+	// The limit caps a button that is never released.
+	dev.HoldButton(v370.ButtonPDF, time.Hour)
+	s.ReadButton(ctx)
+	if d, _ := s.PressDuration(ctx, v370.ButtonPDF, 20*time.Millisecond, 400*time.Millisecond); d != 400*time.Millisecond {
+		t.Fatalf("limit %v", d)
+	}
+}

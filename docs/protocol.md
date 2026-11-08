@@ -66,6 +66,7 @@ of three ways:
 | `1e 93` | cmd+param | `01` → `06` / `00` → `06` | **open / close session** (~0.1–1 s). **While a session is open the Power button is blocked** (verified); buttons work without a session | ✅ |
 | `1e 8e` | cmd+param | `0b 00 <u32 LE>` → `06` | **clock**: whole hours since 2024-01-01 00:00 UTC (0x6199 = 24985 on 2026-11-07 01:xx UTC); ACK takes ~1 s | ✅ |
 | `1e 8f` | cmd+param | `<u16 LE addr>` → u32 LE | **register read**, see §5 | ✅ |
+| `1e 83` | cmd+param | `08 <u32 LE addr> <u24 LE len>` → len bytes | **memory read** (type 8, read-only; RAM only: 0x000–0xFFF, 0x02000000–0x0200FFFF), e.g. button input 0x452 (§7); `v370 mem` | ✅ |
 | `1e 85` | query | → 1 byte | **panel button** pressed since the last read: `00` none, `02` Printer, `03` Email, `04` PDF (§7) | ✅ |
 | `1b 20` / `1b 21` / `1b 22` | cmd+param | `06`, then **4/5/7** bytes (3-byte address + 8/16/32-bit value; lengths from the firmware, [research/firmware-map.md](research/firmware-map.md)) | 💭 **register writes** (from the vendor's V370 plugin, static analysis) — ⚠️ never send | — |
 | `1b 23` / `1b 24` / `1b 25` | cmd+param | `06`, then 3-byte address → 1/2/4 bytes | 💭 register reads (same source) — not used | — |
@@ -223,6 +224,13 @@ pressed since the last read.
 - A press must be firm (~0.25–0.5 s); the first press after a long idle
   time may only wake the scanner (lamp sleep, ~14 min) and not be reported.
 - `v370.Scanner.ReadButton` (high level: `libv370.Device.ReadButton`), tool `v370 buttons [-once]`.
+- **Press duration** (verified 2026-11-08): the firmware keeps the current
+  button inputs in RAM 0x452 (same active-low bits, `f0` = nothing held) and
+  latches a press after 10 samples (≈ 0.25 s). After a `1e 85` event the host
+  reads 0x452 with the read-only `1e 83` type 8 until the button is released:
+  held 1.7 s, 4.5 s and 2.0 s were measured to ±50 ms (`v370 mem -repeat 2400
+  0x450 3`). `v370.Scanner.PressDuration`. Power is latched only at release
+  without a session, so its duration is not available.
 
 How it was found (2026-11-07):
 1. Polling every known query while Printer/Email/PDF were pressed, three

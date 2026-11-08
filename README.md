@@ -63,7 +63,7 @@ licence and safety analysis: [`docs/research/firmware-mod.md`](docs/research/fir
 | Firmware upload, session, status, identity, registers | ✅ verified |
 | Scans with built-in profiles (`v370/profiles`): A4 colour 100/200/300/600 dpi; A5 (148×210 mm) 1200 dpi; 100×50 mm @300, 50×50 mm @600, 25×25 mm @1200 — all real optical resolutions | ✅ verified |
 | Image decoding (block trailers, geometry, colour line alignment), PNG with dpi, lossless or JPEG PDF | ✅ verified |
-| Panel buttons Printer / Email / PDF / Power (`1e 85`), with or without host session | ✅ verified |
+| Panel buttons Printer / Email / PDF / Power (`1e 85`), with or without host session; press duration (`PressDuration`) | ✅ verified |
 | Lamp measurement wait, late replies after lamp sleep | ✅ verified |
 | The vendor app as an alternative (package `vendorapp`: `.SF2` settings + CLI runner) | ✅ verified |
 | Own calibration: offsets and shading computed from every scan's own calibration reads ([`docs/research/calibration.md`](docs/research/calibration.md)) | ✅ tested against all recordings (within the measurement noise) |
@@ -91,7 +91,7 @@ requested area), no tone curve, no resampling, no deskew.
 
 | Command | Purpose |
 |---|---|
-| `cmd/v370` | `info`, `scan`, `decode`, `buttons [-once] [-no-session]`, `poll`; `raw`/`reset` (exploration, need `-i-accept-the-risk`) |
+| `cmd/v370` | `info`, `scan`, `decode`, `buttons [-once] [-no-session]`, `poll`, `mem` (read-only RAM read, e.g. live button state); `raw`/`reset` (exploration, need `-i-accept-the-risk`) |
 | `cmd/v370-usbsim` | `convert` (pcap → trace), `inspect`, `profile` (trace → scan profile), `serve [-attach]`, `attach`, `detach`, `list` |
 | `cmd/vendorapp-fake` | stand-in for the vendor app's `epsonscan2` binary (tests) |
 | `scanstation/firmware.sh` | scanSTATION contract: fetch + verify the firmware |
