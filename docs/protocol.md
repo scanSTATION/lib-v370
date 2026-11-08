@@ -67,7 +67,7 @@ of three ways:
 | `1e 8e` | cmd+param | `0b 00 <u32 LE>` → `06` | **clock**: whole hours since 2024-01-01 00:00 UTC (0x6199 = 24985 on 2026-11-07 01:xx UTC); ACK takes ~1 s | ✅ |
 | `1e 8f` | cmd+param | `<u16 LE addr>` → u32 LE | **register read**, see §5 | ✅ |
 | `1e 83` | cmd+param | `08 <u32 LE addr> <u24 LE len>` → len bytes | **memory read** (type 8, read-only; RAM only: 0x000–0xFFF, 0x02000000–0x0200FFFF), e.g. button input 0x452 (§7); `v370 mem` | ✅ |
-| `1e de` | cmd+param | `00` / `01` (`02` with the LED patch) → `06` | **panel LED**: green / orange (/ off); stock: buttons pause while orange — docs/firmware-patches.md | ✅ |
+| `1e de` | cmd+param | `00` / `01` (`02`, `80` with the LED patch) → `06` | **panel LED**: green / orange (/ off; `80` = fast busy blink until `1b 40`); stock: buttons pause while orange — docs/firmware-patches.md | ✅ |
 | `1e 85` | query | → 1 byte | **panel button** pressed since the last read: `00` none, `02` Printer, `03` Email, `04` PDF (§7) | ✅ |
 | `1b 20` / `1b 21` / `1b 22` | cmd+param | `06`, then **4/5/7** bytes (3-byte address + 8/16/32-bit value; lengths from the firmware, [research/firmware-map.md](research/firmware-map.md)) | 💭 **register writes** (from the vendor's V370 plugin, static analysis) — ⚠️ never send | — |
 | `1b 23` / `1b 24` / `1b 25` | cmd+param | `06`, then 3-byte address → 1/2/4 bytes | 💭 register reads (same source) — not used | — |

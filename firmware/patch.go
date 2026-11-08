@@ -52,19 +52,22 @@ func (f *Firmware) Patches() []string { return append([]string(nil), f.patches..
 // in every LED state (docs/firmware-patches.md):
 //
 //   - `1e de` takes two bits: bit 0 orange, bit 1 off (stock: bit 0 only);
+//     `1e de 80` sets "fast" (RAM 0x3C2 bit 7) and keeps the colour;
 //   - the timer tick's normal LED selection is replaced by a routine in the
 //     free area (payload 0xC9D4) that shows off / orange / green and then
 //     always continues with the button sampling and the idle timer (the
 //     stock orange state skipped both, so buttons did not work while the LED
 //     was orange);
 //   - the busy blink (scanning, carriage return, warm-up) blinks orange
-//     instead of green while orange is selected;
-//   - the re-initialisation at the end of each job keeps the colour.
+//     instead of green while orange is selected, and 4 times faster
+//     (0.125 s instead of 0.5 s) while "fast" is set;
+//   - the re-initialisation at the end of each job keeps the colour and
+//     clears "fast".
 var LEDPatch = Patch{
 	Name:        "led",
-	Description: "LED green / orange / off via 1e de; buttons active in every LED state; busy blink in the selected colour",
+	Description: "LED green / orange / off via 1e de; buttons active in every LED state; busy blink in the selected colour, fast on request",
 	Base:        SHA256,
-	Result:      "5abb7f4baa8faac7d78b5229cd84ea4f6ded5e2207d760e270ee35fa0e580e94",
+	Result:      "28269a04724b640ec22b5f6ce495a1f5e72380c1d2c458dabe33dd9e237620b6",
 	Changes: []Change{
 		// New LED routine (load address 0x0200C9D4):
 		//   ld.w %r11,0x37fd00            LED outputs (bits 4 and 5)
@@ -77,20 +80,35 @@ var LEDPatch = Patch{
 		//   btst [%r8+0x1c2],2 / jreq G
 		//   bclr [%r11],4 / bset [%r11],5 / jp 0x02001336        orange
 		//   G: bset [%r11],4 / bclr [%r11],5 / jp 0x02001336     green
+		// 1e de parameter (load address 0x0200CA20, %r12 = 0x3C2):
+		//   ld.ub %r11,[%sp] / ld.ub %r10,[%r12] / ld.w %r13,%r11
+		//   and %r13,0x80 / jreq C
+		//   or %r10,0x80 / jp S                                  "fast", colour kept
+		//   C: and %r11,0x3 / sll %r11,2 / and %r10,0x73 / or %r10,%r11
+		//   S: ld.b [%r12],%r10 / jp 0x02006A38
+		// Busy blink divisor (load address 0x0200CA46):
+		//   ld.ub %r12,[%r8+0x1c5] / ld.w %r13,20
+		//   btst [%r8+0x1c2],7 / jreq B                          not fast: 20 ticks
+		//   ld.w %r13,5 / cmp %r12,5 / jrult B                   fast: 5 ticks,
+		//   ld.w %r12,0 / ld.b [%r8+0x1c5],%r12                  counter wraps at 5
+		//   B: jp 0x02001308                                     (modulo, toggle)
 		{0xC9D4, mustHex("06c0f4df0b6c00c0c2c183a800c00518b4b0b5b0a4dfd41e00c0c2c182a800c00518b4acb5b0a4dfcb1eb4b0b5aca4dfc71e" +
-			"00c0c2c182a800c00518b4acb5b0a4df901eb4b0b5aca4df8c1e")},
+			"00c0c2c182a800c00518b4acb5b0a4df901eb4b0b5aca4df8c1e" +
+			"0b44ca24bd2e02c00d7000c0051802c00a7400c0061e3b702b8c01c03a73ba36ca34cfdffa1e" +
+			"00c0c5c18c244d6d00c0c2c187a800c009185d6c5c6800c005140c6c00c0c5c18c34a4df4f1e")},
 		// Tick (0x02001374): jump to the new routine instead of the stock
 		// two-state selection; the rest of that selection becomes unreachable.
 		{0x1374, mustHex("5bc02f1e00000000")},
 		// Busy blink (0x02001332): its "on" phase jumps to the routine above.
 		{0x1332, mustHex("5bc0691e")},
-		// Re-initialisation (0x020019D0): drop the clear of the colour bit
-		// (ext, ext, bclr → nop nop nop).
-		{0x19D0, mustHex("000000000000")},
-		// 1e de handler: keep two parameter bits (and 0x3) and clear both
-		// RAM bits before setting them (and 0xf3).
-		{0x6A2A, mustHex("3b70")},
-		{0x6A32, mustHex("3a73")},
+		// Busy blink (0x02001300): the divisor comes from the routine above
+		// (the replaced load is repeated there; the rest becomes nop).
+		{0x1300, mustHex("5bc0a21e00000000")},
+		// Re-initialisation (0x020019D0): clear "fast" (bit 7) instead of
+		// the colour (bit 2).
+		{0x19D0, mustHex("00c0c2c187ac")},
+		// 1e de handler (0x02006A28): parameter handling in the routine above.
+		{0x6A28, mustHex("2fc0fb1e")},
 	},
 }
 

@@ -232,7 +232,7 @@ timers. The exempt ones are 1e 45/53/65/85/93 and 1b 03/13/40 [V].
 | a1 | 0x02006E98 | → R1 | light-source state | yes | A |
 | a2 | 0x02006DA8 | ACK P1 ACK | light source: 00 off, 01 flatbed, 02 TPU, 03 TPU off | yes | C |
 | b0 / b1 | 0x02007B8E / 0x02007C88 | R28 / ACK P28 ACK | read / write the exposure block (RAM 0x304…) | no | A / B |
-| de | 0x02006A12 | ACK P1 ACK | LED: RAM 0x3C2 bit 2 = orange (green otherwise) [V device]; with the LED patch bit 1 = off (docs/firmware-patches.md) | no | B |
+| de | 0x02006A12 | ACK P1 ACK | LED: RAM 0x3C2 bit 2 = orange (green otherwise) [V device]; with the LED patch bit 1 = off, `80` = fast busy blink (docs/firmware-patches.md) | no | B |
 | fa | 0x02005D5E | → ACK | variant-specific motor/home step [U] | no | C |
 | ff | 0x02005E18 | → R4 + ACK | measurement levels + round count | yes | A |
 

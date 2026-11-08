@@ -55,7 +55,8 @@ The driver applies small patches of our own to the known firmware build in
 memory before the upload; no modified firmware file is written or
 distributed, and a power cycle restores the original. Currently one patch,
 `led`: LED off state, buttons working while the LED is orange, busy blink in
-the selected colour, colour kept across scan jobs. Pinned SHA-256 before and
+the selected colour, 4 times faster while the image is transferred, colour
+kept across scan jobs. Pinned SHA-256 before and
 after; `StockFirmware` / `-stock-firmware` disables it:
 [`docs/firmware-patches.md`](docs/firmware-patches.md).
 

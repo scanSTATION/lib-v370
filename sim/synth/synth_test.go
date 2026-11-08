@@ -206,3 +206,43 @@ func TestLED(t *testing.T) {
 		}
 	}
 }
+
+// With the LED patch the host switches to fast blinking just before the
+// image pass; the end of the job clears it. Stock firmware gets no 1e de 80,
+// and nothing is sent unless the patch is known to run.
+func TestTransferBlink(t *testing.T) {
+	for _, tc := range []struct {
+		patch, off bool
+		want       int
+	}{{true, false, 1}, {true, true, 0}, {false, false, 0}} {
+		dev, err := synth.New(synth.Options{LEDPatch: tc.patch, FirmwareLoaded: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		usbdev, err := sim.NewDevice(sim.DefaultDescriptors(), dev, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx := context.Background()
+		s, err := v370.Open(ctx, sim.NewTransport(usbdev), v370.Options{NoTransferBlink: tc.off, Sleep: noSleep})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The firmware was loaded earlier: the host learns about the patch
+		// from LEDPatched (as the scanSTATION server does before each scan).
+		if _, err := s.LEDPatched(ctx); err != nil {
+			t.Fatal(err)
+		}
+		p, _ := v370.LoadProfile("a4-100dpi-color")
+		if err := s.RunProfile(ctx, p, nil); err != nil {
+			t.Fatal(err)
+		}
+		if got := dev.FastImagePasses(); got != tc.want {
+			t.Errorf("patch %v, off %v: %d fast image passes, want %d", tc.patch, tc.off, got, tc.want)
+		}
+		if len(dev.LEDs()) != 0 {
+			t.Errorf("colour changed: %v", dev.LEDs())
+		}
+		s.Close(ctx)
+	}
+}

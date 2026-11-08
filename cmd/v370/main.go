@@ -92,6 +92,7 @@ type common struct {
 	noSession    bool
 	vendorStart  bool
 	stock        bool
+	slowBlink    bool
 }
 
 func (c *common) register(fs *flag.FlagSet) {
@@ -101,6 +102,7 @@ func (c *common) register(fs *flag.FlagSet) {
 	fs.BoolVar(&c.verbose, "v", false, "verbose logging")
 	fs.BoolVar(&c.vendorStart, "vendor-start", false, "start scans where the vendor app does (≈ 1.2 mm after the glass corner)")
 	fs.BoolVar(&c.stock, "stock-firmware", false, "upload the firmware without the LED patch")
+	fs.BoolVar(&c.slowBlink, "no-transfer-blink", false, "keep the normal busy blink while the image is transferred (LED patch)")
 }
 
 // open finds, claims and initialises the scanner.
@@ -111,7 +113,7 @@ func (c *common) open(ctx context.Context) (*usbfs.Device, *v370.Scanner, error)
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 
-	opt := v370.Options{Log: log, NoSession: c.noSession, VendorStart: c.vendorStart, StockFirmware: c.stock}
+	opt := v370.Options{Log: log, NoSession: c.noSession, VendorStart: c.vendorStart, StockFirmware: c.stock, NoTransferBlink: c.slowBlink}
 	if c.fwPath != "" {
 		fw, err := firmware.Load(c.fwPath, c.allowUnknown)
 		if err != nil {

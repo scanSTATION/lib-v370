@@ -46,6 +46,10 @@ type Options struct {
 	// vendor build gets firmware.LEDPatch (LED off state, buttons active
 	// while the LED is orange); other files are uploaded unchanged.
 	StockFirmware bool
+	// NoTransferBlink keeps the normal busy blink during the image pass.
+	// Default with firmware.LEDPatch running: the LED blinks 4 times faster
+	// while the image is transferred.
+	NoTransferBlink bool
 	// VendorStart keeps the vendor app's carriage start position: scans
 	// begin ≈ 1.2 mm after the glass corner. Default: start at the corner
 	// (start.go).
@@ -100,6 +104,7 @@ type Scanner struct {
 	// FirmwareUploaded reports whether Open had to upload the firmware.
 	FirmwareUploaded bool
 	open             bool
+	ledPatched       *bool // LED patch running (nil: not checked yet)
 }
 
 // Open starts a session: uploads the firmware if the scanner has none,
@@ -154,13 +159,15 @@ func (s *Scanner) uploadFirmware(ctx context.Context) error {
 			return fmt.Errorf("v370: scanner needs its firmware: %w", err)
 		}
 	}
+	patched := false
 	if !s.opt.StockFirmware && fw.SHA256() == firmware.LEDPatch.Base {
 		p, err := fw.Apply(firmware.LEDPatch)
 		if err != nil {
 			return fmt.Errorf("v370: %w", err)
 		}
-		fw = p
+		fw, patched = p, true
 	}
+	s.ledPatched = &patched
 	s.opt.Log.Info("v370: uploading firmware", "sha256", fw.SHA256(), "patches", fw.Patches())
 	if err := s.c.command(ctx, cmdFwBegin); err != nil {
 		return fmt.Errorf("v370: firmware begin: %w", err)

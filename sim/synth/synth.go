@@ -46,7 +46,8 @@ type Options struct {
 	// power-off minutes), 0x0005 = 0 (scan counter).
 	Registers map[uint16]uint32
 	// LEDPatch makes the device behave as if firmware.LEDPatch were running:
-	// memory reads show its marker, and `1e de` 02 switches the LED off.
+	// memory reads show its marker, `1e de` 02 switches the LED off, and
+	// `1e de` 80 sets fast blinking until `1b 40`.
 	LEDPatch bool
 }
 
@@ -64,6 +65,8 @@ type Device struct {
 	held      v370.Button // button still held after its press was reported
 	releaseAt time.Time
 	leds      []v370.LED // every LED state set with `1e de`
+	fast      bool       // fast busy blink set (LED patch), cleared by 1b 40
+	fastPass  int        // image passes started with fast blinking
 	scans     int
 	lastImage []byte
 }
@@ -119,6 +122,13 @@ func (d *Device) LEDs() []v370.LED {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return append([]v370.LED(nil), d.leds...)
+}
+
+// FastImagePasses returns how many image passes ran with fast blinking.
+func (d *Device) FastImagePasses() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.fastPass
 }
 
 // PressButton queues a short panel button press (reported by the next `1e 85`).
@@ -280,13 +290,19 @@ func (d *Device) paramLocked(p []byte) error {
 		}
 		d.send(out)
 	case bytes.Equal(cmd, cmdLED):
-		if len(p) != 1 || p[0] > 3 {
+		if len(p) != 1 || (p[0] > 3 && p[0] != 0x80) {
 			return fmt.Errorf("synth: 1e de with parameter %x", p)
+		}
+		if d.opt.LEDPatch && p[0] == 0x80 {
+			d.fast = true // colour unchanged
+			d.send(ack)
+			break
 		}
 		l := v370.LED(p[0] & 1) // stock firmware: bit 0 only
 		if d.opt.LEDPatch && p[0]&2 != 0 {
 			l = v370.LEDOff
 		}
+		d.fast = false
 		d.leds = append(d.leds, l)
 		d.send(ack)
 	case bytes.Equal(cmd, cmdClock):
@@ -389,12 +405,18 @@ func (d *Device) profileLocked(data []byte) bool {
 	}
 	c := keep[0]
 	steps := c.p.Steps
+	if bytes.Equal(data, []byte{0x1b, 0x40}) {
+		d.fast = false // end of job: the patched firmware clears fast blinking
+	}
 	for ; c.cur < len(steps); c.cur++ {
 		s := steps[c.cur]
 		if s.Kind == v370.StepRead {
 			d.send(readReply(data, s))
 		} else if s.Kind == v370.StepData {
 			if s.Tag == v370.TagImage {
+				if d.fast {
+					d.fastPass++
+				}
 				img := Stream(c.p)
 				d.lastImage = img
 				d.send(img)

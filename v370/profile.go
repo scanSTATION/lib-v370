@@ -373,6 +373,10 @@ func (p *Profile) MarkCalibration() {
 
 var cmdSetParams = []byte{0x1e, 0x57}
 
+// cmdImagePass (`1e 47`) starts a data read; before the image read the LED
+// is switched to fast blinking (transferBlink).
+var cmdImagePass = []byte{0x1e, 0x47}
+
 // --- execution ---------------------------------------------------------------
 
 // DataSink receives data reads: tag is "image" or "calibration-N".
@@ -404,6 +408,11 @@ func (s *Scanner) RunProfile(ctx context.Context, p *Profile, sink DataSink) err
 				i += n - 1
 				cmd = ""
 				continue
+			}
+			if bytes.Equal(st.Data, cmdImagePass) && i+1 < len(p.Steps) && p.Steps[i+1].Kind == StepData && p.Steps[i+1].Tag == TagImage {
+				if err := s.transferBlink(ctx); err != nil {
+					return fail(err)
+				}
 			}
 			data := st.Data
 			if cmd == "1e01" && !s.opt.VendorStart {

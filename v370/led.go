@@ -32,9 +32,16 @@ func (l LED) String() string {
 // cmdLED is `1e de` + 1 byte (firmware handler 0x02006A12): stock, it sets
 // RAM 0x3C2 bit 2 to the parameter's bit 0 and the timer tick shows orange
 // instead of green (and skips the button sampling meanwhile). With
-// firmware.LEDPatch bit 1 selects off, and buttons work in every state.
+// firmware.LEDPatch bit 1 selects off, buttons work in every state, and
+// 0x80 (ledFast) makes the busy blink fast until the end of the job.
 // Not used by the vendor app.
 var cmdLED = []byte{0x1e, 0xde}
+
+// ledFast is the `1e de` parameter that, with firmware.LEDPatch, makes the
+// busy blink 4 times faster (0.125 s) and keeps the colour; the firmware
+// clears it at the end of the job (`1b 40`). Stock firmware would read it as
+// "green", so it is only sent to the patched firmware.
+const ledFast = 0x80
 
 // SetLED sets the panel LED. Only while idle (never during a scan).
 func (s *Scanner) SetLED(ctx context.Context, l LED) error {
@@ -47,13 +54,30 @@ func (s *Scanner) SetLED(ctx context.Context, l LED) error {
 	return nil
 }
 
+// transferBlink makes the LED blink fast during the image pass, if the LED
+// patch is known to run (this session uploaded it, or LEDPatched found it)
+// and Options.NoTransferBlink is not set. Called while the scanner is ready,
+// just before the image pass; it sends nothing else (no check mid-scan).
+func (s *Scanner) transferBlink(ctx context.Context) error {
+	if s.opt.NoTransferBlink || s.ledPatched == nil || !*s.ledPatched {
+		return nil
+	}
+	if err := s.c.commandParam(ctx, cmdLED, []byte{ledFast}); err != nil {
+		return fmt.Errorf("v370: LED fast blink: %w", err)
+	}
+	return nil
+}
+
 // LEDPatched reports whether the running firmware has firmware.LEDPatch
-// (read back from RAM with the read-only memory read).
+// (read back from RAM with the read-only memory read). The answer is kept
+// for the session (fast blinking during the image pass needs it).
 func (s *Scanner) LEDPatched(ctx context.Context) (bool, error) {
 	m := firmware.LEDPatchMarker
 	b, err := s.ReadMemory(ctx, m.Address, len(m.Bytes))
 	if err != nil {
 		return false, err
 	}
-	return bytes.Equal(b, m.Bytes), nil
+	ok := bytes.Equal(b, m.Bytes)
+	s.ledPatched = &ok
+	return ok, nil
 }

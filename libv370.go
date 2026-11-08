@@ -60,6 +60,9 @@ type Options struct {
 	VendorStart bool
 	// StockFirmware uploads the firmware without firmware.LEDPatch.
 	StockFirmware bool
+	// NoTransferBlink keeps the normal busy blink during the image pass
+	// (default with the LED patch: 4 times faster while the image is sent).
+	NoTransferBlink bool
 }
 
 // RealScanner opens the real V370 via usbfs (simulated devices attached via
@@ -122,7 +125,7 @@ func OpenDevice(ctx context.Context, opt Options) (*Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := v370.Open(ctx, tp, v370.Options{Firmware: opt.Firmware, Log: opt.Log, Now: opt.Now, NoSession: opt.NoSession, VendorStart: opt.VendorStart, StockFirmware: opt.StockFirmware})
+	s, err := v370.Open(ctx, tp, v370.Options{Firmware: opt.Firmware, Log: opt.Log, Now: opt.Now, NoSession: opt.NoSession, VendorStart: opt.VendorStart, StockFirmware: opt.StockFirmware, NoTransferBlink: opt.NoTransferBlink})
 	if err != nil {
 		tp.Close()
 		return nil, fmt.Errorf("%s: %w", desc, err)
