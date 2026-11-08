@@ -56,12 +56,15 @@ func (f *Firmware) Patches() []string { return append([]string(nil), f.patches..
 //     free area (payload 0xC9D4) that shows off / orange / green and then
 //     always continues with the button sampling and the idle timer (the
 //     stock orange state skipped both, so buttons did not work while the LED
-//     was orange).
+//     was orange);
+//   - the busy blink (scanning, carriage return, warm-up) blinks orange
+//     instead of green while orange is selected;
+//   - the re-initialisation at the end of each job keeps the colour.
 var LEDPatch = Patch{
 	Name:        "led",
-	Description: "LED green / orange / off via 1e de; buttons active in every LED state",
+	Description: "LED green / orange / off via 1e de; buttons active in every LED state; busy blink in the selected colour",
 	Base:        SHA256,
-	Result:      "680e8a64e141cf78e6f424b58f4ce5a66f3a358efa7722bf9f7b9b6853ac53e1",
+	Result:      "5abb7f4baa8faac7d78b5229cd84ea4f6ded5e2207d760e270ee35fa0e580e94",
 	Changes: []Change{
 		// New LED routine (load address 0x0200C9D4):
 		//   ld.w %r11,0x37fd00            LED outputs (bits 4 and 5)
@@ -70,10 +73,20 @@ var LEDPatch = Patch{
 		//   L1: btst [%r8+0x1c2],2 / jreq L2   bit 2 set: orange
 		//   bclr [%r11],4 / bset [%r11],5 / jp 0x02001392
 		//   L2: bset [%r11],4 / bclr [%r11],5 / jp 0x02001392   green
-		{0xC9D4, mustHex("06c0f4df0b6c00c0c2c183a800c00518b4b0b5b0a4dfd41e00c0c2c182a800c00518b4acb5b0a4dfcb1eb4b0b5aca4dfc71e")},
+		// Busy blink "on" phase (load address 0x0200CA06, %r11 = LED):
+		//   btst [%r8+0x1c2],2 / jreq G
+		//   bclr [%r11],4 / bset [%r11],5 / jp 0x02001336        orange
+		//   G: bset [%r11],4 / bclr [%r11],5 / jp 0x02001336     green
+		{0xC9D4, mustHex("06c0f4df0b6c00c0c2c183a800c00518b4b0b5b0a4dfd41e00c0c2c182a800c00518b4acb5b0a4dfcb1eb4b0b5aca4dfc71e" +
+			"00c0c2c182a800c00518b4acb5b0a4df901eb4b0b5aca4df8c1e")},
 		// Tick (0x02001374): jump to the new routine instead of the stock
 		// two-state selection; the rest of that selection becomes unreachable.
 		{0x1374, mustHex("5bc02f1e00000000")},
+		// Busy blink (0x02001332): its "on" phase jumps to the routine above.
+		{0x1332, mustHex("5bc0691e")},
+		// Re-initialisation (0x020019D0): drop the clear of the colour bit
+		// (ext, ext, bclr → nop nop nop).
+		{0x19D0, mustHex("000000000000")},
 		// 1e de handler: keep two parameter bits (and 0x3) and clear both
 		// RAM bits before setting them (and 0xf3).
 		{0x6A2A, mustHex("3b70")},
