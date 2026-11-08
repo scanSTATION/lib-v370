@@ -409,7 +409,7 @@ ATTRS{idProduct}=="014a", ENV{epsonscan2_driver}="esci", ENV{firmware_file}="esf
 - Scan session: identity query → firmware load → set params (resolution, color
   mode, scan area, bit depth, gamma) → start scan → read image data line-by-line
   (ESCI IMG format: per-line header + pixel bytes + footer) → cancel/end.
-- Public references: EPSON ESC/I Reference Manual; SANE `epson2` backend source;
+- Public references: the vendor's ESC/I reference manual; SANE `epson2` backend source;
   `utsushi` source; **our own USB capture** (the ground truth).
 
 ### Proprietary plugin does NOT touch USB (verified via `readelf -d` / `nm -D`)
