@@ -98,9 +98,12 @@ area.
 
 ## B. Firmware-side changes
 
-Verified so far: data-only changes (version string) run on the device. Low-risk candidates: identity
-and USB strings. Nothing else is recommended. All gains listed above are reachable without firmware
-changes.
+Verified on the device: data-only changes (version string), and the **LED patch** in use since
+2026-11-08 ([`../firmware-patches.md`](../firmware-patches.md)): LED off state, buttons working while
+the LED is orange, busy blink in the selected colour, colour kept across jobs. It touches only the LED
+output bits and two RAM bits and is applied in memory to the pinned vendor build (no firmware file is
+distributed). Other low-risk candidates: identity and USB strings. Nothing that touches motor, lamp or
+CCD code is recommended (§C). All gains in §A are reachable without firmware changes.
 
 ## C. Risky internals: explained, **do not change**
 
@@ -126,4 +129,4 @@ these.
 - Which channel the single-channel mode delivers.
 - The hardware limit on bytes per transfer.
 - Whether 16-bit image passes need different shading uploads.
-- What `1e 68`, `1e fa`, `1e de` and `1e 89/8a` are for.
+- What `1e 68`, `1e fa` and `1e 89/8a` are for (`1e de` = LED, see `../firmware-patches.md`).

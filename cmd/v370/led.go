@@ -11,18 +11,18 @@ import (
 )
 
 // cmdLED runs a visible test sequence of the LED (`1e de`): wait, orange
-// (or off), green, quick changes, green.
+// (or off with the LED patch), green, quick changes, green.
 func cmdLED(args []string) error {
 	fs := flag.NewFlagSet("led", flag.ExitOnError)
 	var c common
 	c.register(fs)
 	wait := fs.Duration("wait", 5*time.Second, "pause before the sequence")
-	hold := fs.Duration("hold", 3*time.Second, "how long the alternative state is held")
+	hold := fs.Duration("hold", 3*time.Second, "how long orange (or off) is held")
 	blinks := fs.Int("blinks", 3, "quick changes after the hold")
 	period := fs.Duration("period", 300*time.Millisecond, "duration of each quick on/off phase")
 	off := fs.Bool("off", false, "use the off state (needs the LED patch) instead of orange")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: v370 led [flags]   (test sequence of the LED's alternative state, 1e de)")
+		fmt.Fprintln(os.Stderr, "usage: v370 led [flags]   (LED test sequence: orange or off, green, quick changes; 1e de)")
 		fs.PrintDefaults()
 	}
 	fs.Parse(args)

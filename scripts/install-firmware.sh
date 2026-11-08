@@ -7,11 +7,11 @@
 # The vendor's own distribution instead.
 #
 # Usage:
-#   scripts/install-firmware.sh [--flatpak] [DIR]       from the installed the vendor app Flatpak (default)
+#   scripts/install-firmware.sh [--flatpak] [DIR]       from the installed Flatpak of the vendor app (default)
 #   scripts/install-firmware.sh --download [DIR]        download the vendor's official bundle from the vendor's website
 #   scripts/install-firmware.sh --bundle FILE [DIR]     from the vendor's official bundle downloaded in a browser
 #   scripts/install-firmware.sh --file FILE [DIR]       from an esfwdd.bin copied from elsewhere
-#   scripts/install-firmware.sh --flathub [DIR]         fetch the vendor app app (no runtime) from Flathub
+#   scripts/install-firmware.sh --flathub [DIR]         fetch the vendor app (no runtime) from Flathub
 #                                                       with the flatpak client into a temporary directory
 #   scripts/install-firmware.sh --auto [DIR]            try, in this order: --download, bundles and
 #                                                       esfwdd.bin files in $FW_SOURCES, --flatpak, --flathub
@@ -121,7 +121,7 @@ from_download() {
     from_bundle "$d/$BUNDLE_NAME" "$dir"
 }
 
-# from_flathub DIR — install only the vendor app app (no runtime, nothing
+# from_flathub DIR — install only the vendor app (no runtime, nothing
 # is run) with the official flatpak client into a temporary user
 # installation, then take the firmware from it.
 from_flathub() {
@@ -138,12 +138,12 @@ from_flathub() {
     from_flatpak "$dir" --user
 }
 
-# from_flatpak DIR [--user] — firmware of an installed the vendor app Flatpak.
+# from_flatpak DIR [--user] — firmware of the installed Flatpak of the vendor app.
 from_flatpak() {
     local dir=$1 scope=${2:-} loc manifest
     command -v flatpak >/dev/null || die "flatpak not found; install the vendor app ($FLATPAK_ID) or use --bundle"
     loc=$(flatpak info $scope --show-location "$FLATPAK_ID" 2>/dev/null) ||
-        die "the vendor app Flatpak not installed: sudo flatpak install flathub $FLATPAK_ID (or use --bundle)"
+        die "Flatpak of the vendor app not installed: sudo flatpak install flathub $FLATPAK_ID (or use --bundle)"
     manifest="$loc/files/manifest.json"
     if [ -f "$manifest" ] && command -v python3 >/dev/null; then
         # The build manifest records the sources the Flatpak was built from.

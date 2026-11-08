@@ -379,7 +379,7 @@ These let you rebuild a native (non-Flatpak) install later via the AUR
 
 ## 9. Direct-communication analysis (scan WITHOUT the vendor app — verified 2026-08-05)
 
-Question: what is required to scan with no vendor app app at all — direct USB
+Question: what is required to scan with no vendor app at all — direct USB
 or our own Go app? Findings below are all verified on the live system.
 
 ### USB transport (verified via `lsusb -v`)

@@ -58,3 +58,10 @@ Result on the real scanner: upload accepted, identity
 a power cycle the stock firmware was uploaded again → "1.00". This confirms
 on the device that the 1-byte sum is the only check. The modified file is
 not kept in any repository.
+
+## In use: the LED patch (2026-11-08)
+
+The first functional change: lib-v370 patches the LED logic in memory
+before every upload (pinned input and result SHA-256, our own bytes only,
+LED output bits and two RAM bits only). Description, code and safety
+notes: [`../firmware-patches.md`](../firmware-patches.md).

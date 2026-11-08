@@ -46,14 +46,18 @@ every source is checked against pinned SHA-256 values:
 scanstation/firmware.sh /path/to/your/app                      # automatic (as the scanSTATION Docker build does)
 scripts/install-firmware.sh --url                              # where to download the vendor's bundle (browser only)
 scripts/install-firmware.sh --bundle ~/Downloads/epsonscan2-bundle-6.7.82.0.x86_64.deb.tar.gz /path/to/your/app
-scripts/install-firmware.sh /path/to/your/app                  # from an installed the vendor app Flatpak
-scripts/install-firmware.sh --flathub /path/to/your/app        # The vendor app app only, official flatpak client, temp dir
+scripts/install-firmware.sh /path/to/your/app                  # from the installed Flatpak of the vendor app
+scripts/install-firmware.sh --flathub /path/to/your/app        # only the vendor app (no runtime), official flatpak client, temp dir
 scripts/install-firmware.sh --verify FILE                      # check a firmware file
 ```
 
 The driver applies small patches of our own to the known firmware build in
-memory before the upload (LED off state; pinned SHA-256 before and after;
-`StockFirmware` disables it): [`docs/firmware-patches.md`](docs/firmware-patches.md).
+memory before the upload; no modified firmware file is written or
+distributed, and a power cycle restores the original. Currently one patch,
+`led`: LED off state, buttons working while the LED is orange, busy blink in
+the selected colour, colour kept across scan jobs. Pinned SHA-256 before and
+after; `StockFirmware` / `-stock-firmware` disables it:
+[`docs/firmware-patches.md`](docs/firmware-patches.md).
 
 `--auto` (used by `scanstation/firmware.sh`) tries the vendor's website (which
 currently refuses scripted downloads), then files in `$FW_SOURCES`, an
@@ -68,7 +72,7 @@ licence and safety analysis: [`docs/research/firmware-mod.md`](docs/research/fir
 | Scans with built-in profiles (`v370/profiles`): A4 colour 100/200/300/600 dpi; A5 (148×210 mm) 1200 dpi; 100×50 mm @300, 50×50 mm @600, 25×25 mm @1200 — all real optical resolutions | ✅ verified |
 | Image decoding (block trailers, geometry, colour line alignment), PNG with dpi, lossless or JPEG PDF | ✅ verified |
 | Panel buttons Printer / Email / PDF / Power (`1e 85`), with or without host session; press duration (`PressDuration`) | ✅ verified |
-| Panel LED green / orange / off (`SetLED`; off and buttons-while-orange need the in-memory firmware patch, [`docs/firmware-patches.md`](docs/firmware-patches.md)) | ✅ verified |
+| Panel LED green / orange / off (`SetLED`; off, buttons-while-orange and the coloured busy blink need the in-memory firmware patch, [`docs/firmware-patches.md`](docs/firmware-patches.md)) | ✅ verified |
 | Lamp measurement wait, late replies after lamp sleep | ✅ verified |
 | The vendor app as an alternative (package `vendorapp`: `.SF2` settings + CLI runner) | ✅ verified |
 | Own calibration: offsets and shading computed from every scan's own calibration reads ([`docs/research/calibration.md`](docs/research/calibration.md)) | ✅ tested against all recordings (within the measurement noise) |

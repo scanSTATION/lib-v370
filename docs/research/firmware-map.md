@@ -12,7 +12,7 @@ Addresses are **load addresses** (0x0200xxxx) unless marked "payload" or "file".
 Companion files (`docs/research/`):
 - `supported-modes.md`: resolutions, bit depths, channels, limits.
 - `improvements.md`: what to try, plus the risky internals.
-- `tools/firmware/out/`: generated listings (not in git — they contain disassembled the vendor code); rebuild them with §8.
+- `tools/firmware/out/`: generated listings (not in git — they contain disassembled vendor code); rebuild them with §8.
 - `tools/firmware/`: the tools.
 
 ## 1. Quick facts

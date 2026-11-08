@@ -8,8 +8,8 @@
 # scripts/install-firmware.sh --help):
 #   1. The vendor's website (currently refuses scripted downloads)
 #   2. bundles / esfwdd.bin files in $FW_SOURCES (e.g. downloaded in a browser)
-#   3. an installed the vendor app Flatpak
-#   4. Flathub, with the official flatpak client (only the vendor app app)
+#   3. the installed Flatpak of the vendor app
+#   4. Flathub, with the official flatpak client (only the vendor app)
 #
 set -euo pipefail
 DEST=${1:?usage: $0 DEST}

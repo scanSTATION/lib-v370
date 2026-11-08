@@ -41,7 +41,7 @@ Commands:
   buttons watch the panel buttons (Printer, Email, PDF) and print presses
   poll    open a session and poll read-only queries, logging every change
   mem     read scanner RAM (read-only 1e 83 type 8), e.g. button state
-  led     test sequence of the LED's alternative state (1e de)
+  led     LED test sequence: orange / off / green (1e de, docs/firmware-patches.md)
   raw     send 2-byte commands (1b xx / 1e xx) and print the replies (exploration)
   reset   USB port reset (WARNING: a hung V370 drops off the bus instead of
           recovering; only a power cycle helps — see docs/protocol.md §2)

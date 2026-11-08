@@ -77,4 +77,4 @@ Static analysis by research subagents, partly verified on the scanner:
   benefit and risk; risky internals (motor, lamp, CCD) explained, not to be
   changed.
 - Tools in [`tools/firmware/`](tools/firmware/); generated listings go to
-  `tools/firmware/out/` (git-ignored: they contain disassembled the vendor code).
+  `tools/firmware/out/` (git-ignored: they contain disassembled vendor code).
