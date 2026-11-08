@@ -42,6 +42,10 @@ type Options struct {
 	// FirmwareSettle is the pause after a firmware upload before the next
 	// command (the vendor app waits ~2.7 s; default 2.5 s).
 	FirmwareSettle time.Duration
+	// StockFirmware uploads the firmware unchanged. Default: the known
+	// vendor build gets firmware.LEDPatch (LED off state, buttons active
+	// while the LED is orange); other files are uploaded unchanged.
+	StockFirmware bool
 	// VendorStart keeps the vendor app's carriage start position: scans
 	// begin ≈ 1.2 mm after the glass corner. Default: start at the corner
 	// (start.go).
@@ -150,7 +154,14 @@ func (s *Scanner) uploadFirmware(ctx context.Context) error {
 			return fmt.Errorf("v370: scanner needs its firmware: %w", err)
 		}
 	}
-	s.opt.Log.Info("v370: uploading firmware", "sha256", fw.SHA256())
+	if !s.opt.StockFirmware && fw.SHA256() == firmware.LEDPatch.Base {
+		p, err := fw.Apply(firmware.LEDPatch)
+		if err != nil {
+			return fmt.Errorf("v370: %w", err)
+		}
+		fw = p
+	}
+	s.opt.Log.Info("v370: uploading firmware", "sha256", fw.SHA256(), "patches", fw.Patches())
 	if err := s.c.command(ctx, cmdFwBegin); err != nil {
 		return fmt.Errorf("v370: firmware begin: %w", err)
 	}

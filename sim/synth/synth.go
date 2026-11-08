@@ -45,6 +45,9 @@ type Options struct {
 	// Registers answers `1e 8f` reads; defaults: 0x0010 = 120 (auto
 	// power-off minutes), 0x0005 = 0 (scan counter).
 	Registers map[uint16]uint32
+	// LEDPatch makes the device behave as if firmware.LEDPatch were running:
+	// memory reads show its marker, and `1e de` 02 switches the LED off.
+	LEDPatch bool
 }
 
 // Device is the synthetic scanner. Safe for concurrent use.
@@ -60,6 +63,7 @@ type Device struct {
 	buttons   []press
 	held      v370.Button // button still held after its press was reported
 	releaseAt time.Time
+	leds      []v370.LED // every LED state set with `1e de`
 	scans     int
 	lastImage []byte
 }
@@ -108,6 +112,13 @@ func (d *Device) HoldButton(b v370.Button, hold time.Duration) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.buttons = append(d.buttons, press{b, hold})
+}
+
+// LEDs returns every LED state set so far (oldest first).
+func (d *Device) LEDs() []v370.LED {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]v370.LED(nil), d.leds...)
 }
 
 // PressButton queues a short panel button press (reported by the next `1e 85`).
@@ -167,6 +178,7 @@ var (
 	cmdClock     = []byte{0x1e, 0x8e}
 	cmdRegister  = []byte{0x1e, 0x8f}
 	cmdMemory    = []byte{0x1e, 0x83}
+	cmdLED       = []byte{0x1e, 0xde}
 	cmdSession   = []byte{0x1e, 0x93}
 )
 
@@ -226,7 +238,8 @@ func (d *Device) genericLocked(data []byte) error {
 	case bytes.Equal(data, cmdLamp):
 		d.send([]byte{0x01}) // measurement done, levels OK
 	case bytes.Equal(data, cmdSession), bytes.Equal(data, cmdClock),
-		bytes.Equal(data, cmdRegister), bytes.Equal(data, cmdFwRestart), bytes.Equal(data, cmdMemory):
+		bytes.Equal(data, cmdRegister), bytes.Equal(data, cmdFwRestart), bytes.Equal(data, cmdMemory),
+		bytes.Equal(data, cmdLED):
 		d.param = append([]byte(nil), data...)
 		d.send(ack)
 	default:
@@ -255,12 +268,27 @@ func (d *Device) paramLocked(p []byte) error {
 		addr := binary.LittleEndian.Uint32(p[1:])
 		n := int(p[5]) | int(p[6])<<8 | int(p[7])<<16
 		out := make([]byte, n)
+		m := firmware.LEDPatchMarker
 		for i := range out {
-			if addr+uint32(i) == 0x452 {
+			a := addr + uint32(i)
+			switch {
+			case a == 0x452:
 				out[i] = d.buttonInputLocked()
+			case d.opt.LEDPatch && a >= m.Address && a < m.Address+uint32(len(m.Bytes)):
+				out[i] = m.Bytes[a-m.Address]
 			}
 		}
 		d.send(out)
+	case bytes.Equal(cmd, cmdLED):
+		if len(p) != 1 || p[0] > 3 {
+			return fmt.Errorf("synth: 1e de with parameter %x", p)
+		}
+		l := v370.LED(p[0] & 1) // stock firmware: bit 0 only
+		if d.opt.LEDPatch && p[0]&2 != 0 {
+			l = v370.LEDOff
+		}
+		d.leds = append(d.leds, l)
+		d.send(ack)
 	case bytes.Equal(cmd, cmdClock):
 		if len(p) != 6 || p[0] != 0x0b || p[1] != 0x00 {
 			// Only the clock function is modelled; anything else would write

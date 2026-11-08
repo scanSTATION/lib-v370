@@ -37,7 +37,8 @@ var ErrNotFound = errors.New("firmware: esfwdd.bin not found")
 // Firmware is a validated firmware image.
 type Firmware struct {
 	payload []byte
-	hash    string // SHA-256 of the file; "" for FromPayload
+	hash    string   // SHA-256 of the file; "" for FromPayload
+	patches []string // names of applied patches
 }
 
 // Default loads DefaultPath (relative to the working directory). The error

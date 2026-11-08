@@ -100,7 +100,7 @@ flowchart LR
 | 0x3BF / 0x3C0 / 0x3C2 / 0x3CF | flag bytes (motor, pass, power state; 0x3CF bits 0–1 = optics mode, bit 7 = error) | many | [V partial] |
 | 0x3C1 | **status byte 0 source**: bit 6 busy, bit 1 warming up, bit 7 fatal error | motor/lamp → 1b 03 0x02006EB2 | [V] |
 | 0x3C3 | button wait-for-release | sampler | [V] |
-| 0x3C5 | LED blink counter | tick | [V] |
+| 0x3C5 | LED blink phase counter (toggle every 20 ticks = 0.5 s in the blink states) | tick | [V] |
 | 0x3C9–0x3CE | front-end gain/offset per channel | 1e 46 measurement → 1e 9b | [V] |
 | 0x3E5 / 0x3EA / 0x3EC | lamp-on time counters (6 s sub-counter, flatbed, TPU) → NV words 0x2E / 0x30 once a minute | tick → main | [V] |
 | 0x3F0–0x418 | **1e 53/1e 57 block** (only byte 0x1A at 0x40A is read elsewhere) | 0x020079FA → 0x0200788E | [V] |
@@ -232,7 +232,7 @@ timers. The exempt ones are 1e 45/53/65/85/93 and 1b 03/13/40 [V].
 | a1 | 0x02006E98 | → R1 | light-source state | yes | A |
 | a2 | 0x02006DA8 | ACK P1 ACK | light source: 00 off, 01 flatbed, 02 TPU, 03 TPU off | yes | C |
 | b0 / b1 | 0x02007B8E / 0x02007C88 | R28 / ACK P28 ACK | read / write the exposure block (RAM 0x304…) | no | A / B |
-| de | 0x02006A12 | ACK P1 ACK | sets RAM 0x3C2 bit 2 [U] | no | B |
+| de | 0x02006A12 | ACK P1 ACK | LED: RAM 0x3C2 bit 2 = orange (green otherwise) [V device]; with the LED patch bit 1 = off (docs/firmware-patches.md) | no | B |
 | fa | 0x02005D5E | → ACK | variant-specific motor/home step [U] | no | C |
 | ff | 0x02005E18 | → R4 + ACK | measurement levels + round count | yes | A |
 

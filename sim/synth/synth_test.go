@@ -3,6 +3,7 @@ package synth_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -181,5 +182,27 @@ func TestPressDuration(t *testing.T) {
 	s.ReadButton(ctx)
 	if d, _ := s.PressDuration(ctx, v370.ButtonPDF, 20*time.Millisecond, 400*time.Millisecond); d != 400*time.Millisecond {
 		t.Fatalf("limit %v", d)
+	}
+}
+
+func TestLED(t *testing.T) {
+	ctx := context.Background()
+	for _, patched := range []bool{false, true} {
+		dev, s := open(t, synth.Options{FirmwareLoaded: true, LEDPatch: patched})
+		if p, err := s.LEDPatched(ctx); err != nil || p != patched {
+			t.Fatalf("patched = %v %v, want %v", p, err, patched)
+		}
+		for _, l := range []v370.LED{v370.LEDOrange, v370.LEDOff, v370.LEDGreen} {
+			if err := s.SetLED(ctx, l); err != nil {
+				t.Fatal(err)
+			}
+		}
+		want := "[orange green green]" // stock: off shows green
+		if patched {
+			want = "[orange off green]"
+		}
+		if got := fmt.Sprint(dev.LEDs()); got != want {
+			t.Fatalf("patched %v: LEDs %s, want %s", patched, got, want)
+		}
 	}
 }

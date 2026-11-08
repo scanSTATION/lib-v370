@@ -58,6 +58,8 @@ type Options struct {
 	// VendorStart keeps the vendor app's carriage start position (scans
 	// begin ≈ 1.2 mm after the glass corner); default: at the corner.
 	VendorStart bool
+	// StockFirmware uploads the firmware without firmware.LEDPatch.
+	StockFirmware bool
 }
 
 // RealScanner opens the real V370 via usbfs (simulated devices attached via
@@ -120,7 +122,7 @@ func OpenDevice(ctx context.Context, opt Options) (*Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := v370.Open(ctx, tp, v370.Options{Firmware: opt.Firmware, Log: opt.Log, Now: opt.Now, NoSession: opt.NoSession, VendorStart: opt.VendorStart})
+	s, err := v370.Open(ctx, tp, v370.Options{Firmware: opt.Firmware, Log: opt.Log, Now: opt.Now, NoSession: opt.NoSession, VendorStart: opt.VendorStart, StockFirmware: opt.StockFirmware})
 	if err != nil {
 		tp.Close()
 		return nil, fmt.Errorf("%s: %w", desc, err)
@@ -143,6 +145,13 @@ func (d *Device) Status(ctx context.Context) (v370.Status, error) { return d.s.S
 // ReadButton returns the panel button pressed since the last call
 // (v370.ButtonNone if none). Poll it while idle, never during Scan.
 func (d *Device) ReadButton(ctx context.Context) (v370.Button, error) { return d.s.ReadButton(ctx) }
+
+// SetLED sets the panel LED (v370.Scanner.SetLED); LEDPatched reports
+// whether LEDOff is available.
+func (d *Device) SetLED(ctx context.Context, l v370.LED) error { return d.s.SetLED(ctx, l) }
+
+// LEDPatched reports whether the firmware LED patch is running.
+func (d *Device) LEDPatched(ctx context.Context) (bool, error) { return d.s.LEDPatched(ctx) }
 
 // PressDuration measures how long the button b just reported by ReadButton
 // is held (see v370.Scanner.PressDuration). Only while idle.
